@@ -1,72 +1,118 @@
-<header>
+# MySoilBio: Open-Source Soil Biomass Calculations in R
 
-<!--
-  <<< Author notes: Course header >>>
-  Include a 1280×640 image, course title in sentence case, and a concise description in emphasis.
-  In your repository settings: enable template repository, add your 1280×640 social image, auto delete head branches.
-  Add your open source license, GitHub uses MIT license.
--->
-
-# Introduction to GitHub
-
-_Get started using GitHub in less than an hour._
-
-</header>
-
-<!--
-  <<< Author notes: Step 1 >>>
-  Choose 3-5 steps for your course.
-  The first step is always the hardest, so pick something easy!
-  Link to docs.github.com for further explanations.
-  Encourage users to open new tabs for steps!
--->
-
-## Step 1: Create a branch
-
-_Welcome to "Introduction to GitHub"! :wave:_
-
-**What is GitHub?**: GitHub is a collaboration platform that uses _[Git](https://docs.github.com/get-started/quickstart/github-glossary#git)_ for versioning. GitHub is a popular place to share and contribute to [open-source](https://docs.github.com/get-started/quickstart/github-glossary#open-source) software.
-<br>:tv: [Video: What is GitHub?](https://www.youtube.com/watch?v=pBy1zgt0XPc)
-
-**What is a repository?**: A _[repository](https://docs.github.com/get-started/quickstart/github-glossary#repository)_ is a project containing files and folders. A repository tracks versions of files and folders. For more information, see "[About repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/about-repositories)" from GitHub Docs.
-
-**What is a branch?**: A _[branch](https://docs.github.com/en/get-started/quickstart/github-glossary#branch)_ is a parallel version of your repository. By default, your repository has one branch named `main` and it is considered to be the definitive branch. Creating additional branches allows you to copy the `main` branch of your repository and safely make any changes without disrupting the main project. Many people use branches to work on specific features without affecting any other parts of the project.
-
-Branches allow you to separate your work from the `main` branch. In other words, everyone's work is safe while you contribute. For more information, see "[About branches](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-branches)".
-
-**What is a profile README?**: A _[profile README](https://docs.github.com/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/managing-your-profile-readme)_ is essentially an "About me" section on your GitHub profile where you can share information about yourself with the community on GitHub.com. GitHub shows your profile README at the top of your profile page. For more information, see "[Managing your profile README](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/managing-your-profile-readme)".
-
-![profile-readme-example](/images/profile-readme-example.png)
-
-### :keyboard: Activity: Your first branch
-
-1. Open a new browser tab and navigate to your newly made repository. Then, work on the steps in your second tab while you read the instructions in this tab.
-2. Navigate to the **< > Code** tab in the header menu of your repository.
-
-   ![code-tab](/images/code-tab.png)
-
-3. Click on the **main** branch drop-down.
-
-   ![main-branch-dropdown](/images/main-branch-dropdown.png)
-
-4. In the field, name your branch `my-first-branch`. In this case, the name must be `my-first-branch` to trigger the course workflow.
-5. Click **Create branch: my-first-branch** to create your branch.
-
-   ![create-branch-button](/images/create-branch-button.png)
-
-   The branch will automatically switch to the one you have just created.
-   The **main** branch drop-down bar will reflect your new branch and display the new branch name.
-
-6. Wait about 20 seconds then refresh this page (the one you're following instructions from). [GitHub Actions](https://docs.github.com/en/actions) will automatically update to the next step.
-
-<footer>
-
-<!--
-  <<< Author notes: Footer >>>
-  Add a link to get support, GitHub status page, code of conduct, license link.
--->
+MySoilBio is an open-source repository providing R scripts for calculating microbial biomass (including bacterial and fungal biomass), protozoa counts, and nematode abundance in soil samples using shadowing microscopy and dilution scaling. This tool is designed to support soil health research by offering an accessible, reproducible alternative to proprietary tools.
 
 ---
+
+## Features
+- Calculate **bacterial biomass** (µg/g soil).
+- Calculate **fungal biomass** (µg/g soil).
+- Estimate **protozoa counts** (flagellates and amoebae).
+- Enumerate **nematodes** (bacterial-feeding, fungal-feeding, predatory, and root-feeding).
+- Includes example datasets for reproducibility and testing.
+
+---
+
+## Repository Structure
+```
+MySoilBio/
+  README.md           # Project overview and instructions (this file)
+  LICENSE             # Licensing information
+  scripts/            # R scripts for analysis
+    calculate_biomass.R
+    calculate_protozoa_nematodes.R
+    load_metadata.R
+    load_fungal_data.R
+    run_analysis.R
+  data/               # Example datasets
+    metadata.csv
+    fungal_data.csv
+  output/             # Placeholder for output results (empty by default)
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+- **R (Version 4.0 or later)**
+- R packages:
+  - `dplyr`
+
+### Installation
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/SoilLover4vr/MySoilBio.git
+   cd MySoilBio
+   ```
+2. Place your input data files (`metadata.csv` and `fungal_data.csv`) in the `data/` folder.
+3. Open the R scripts in your preferred IDE (e.g., RStudio).
+
+---
+
+## Usage
+
+### Example Workflow
+1. **Prepare the Input Data Files**:
+   - `metadata.csv`: Contains sample-level metadata (dilution factors, bacterial counts, nematode counts, etc.).
+   - `fungal_data.csv`: Contains fungal fragment measurements (length and width).
+
+2. **Source the R Scripts**:
+   - Run the following commands in R to load the required functions:
+     ```R
+     source("scripts/load_metadata.R")
+     source("scripts/load_fungal_data.R")
+     source("scripts/calculate_biomass.R")
+     source("scripts/calculate_protozoa_nematodes.R")
+     source("scripts/run_analysis.R")
+     ```
+
+3. **Execute the Analysis**:
+   - Run the `run_analysis()` function to process the input data and generate the results:
+     ```R
+     results <- run_analysis("data/metadata.csv", "data/fungal_data.csv")
+     ```
+
+4. **Export Results**:
+   - Save the results to a CSV file:
+     ```R
+     write.csv(results, "output/Final_Summary_Results.csv", row.names = FALSE)
+     ```
+
+5. **Review Results**:
+   - The output file will include metrics such as:
+     - Bacterial biomass (BacBio)
+     - Fungal biomass (FunBio)
+     - Fungal-to-bacterial biomass ratio (F:B)
+     - Protozoa counts (Proto)
+     - Nematode counts (BfNem, FfNem, RfNem, PNem)
+
+---
+
+## Example Data
+Example datasets (`metadata.csv` and `fungal_data.csv`) are provided in the `data/` folder for testing. These files contain:
+- **metadata.csv**:
+  - Sample IDs, dilution factors, bacterial counts, and nematode counts.
+- **fungal_data.csv**:
+  - Sample IDs, fungal fragment lengths, and widths.
+
+---
+
+## Contributions
+Contributions to this project are welcome! To contribute:
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Submit a pull request with your changes.
+
+---
+
+## License
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+---
+
+## Contact
+For questions or suggestions, please open an issue in this repository or reach out to the maintainers.
 
 Get help: [Post in our discussion board](https://github.com/orgs/skills/discussions/categories/introduction-to-github) &bull; [Review the GitHub status page](https://www.githubstatus.com/)
 
