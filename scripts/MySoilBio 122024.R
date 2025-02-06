@@ -26,97 +26,71 @@ fungal_data$Fungal_Date <- as.Date(fungal_data$Fungal_Date, format="%Y-%m-%d")
 metadata <- metadata %>%
   mutate(
     Main.Dilution = as.numeric(gsub("1:", "", Main.Dilution)),
-    Bacterial.Dilution = as.numeric(gsub("1:", "", Bacterial.Dilution))
+    Bacterial.Dilution = as.numeric(gsub("1:", "", Bacterial.Dilution)),
+    Drops.per.mL = as.numeric(Drops.per.mL)
+  )
+
+# Translate 'Bacterial FOV' to fractional values
+metadata <- metadata %>%
+  mutate(
+    FOV_Fraction = case_when(
+      Bacterial.FOV == "Quarter" ~ 0.25,
+      Bacterial.FOV == "Half" ~ 0.5,
+      Bacterial.FOV == "Whole" ~ 1,
+      TRUE ~ NA_real_
+    )
   )
 
 # Merge fungal_data and metadata on 'ID' and 'Date'
 data <- merge(fungal_data, metadata, by.x = c("ID", "Fungal_Date"), by.y = c("ID", "Date"), all.x = TRUE)
 
 # Constants for scaling
-field_number <- 18            # Eyepiece field number
-objective_magnification <- 40  # Objective lens magnification
-fov_diameter_mm <- field_number / objective_magnification  # FoV diameter in mm
-fov_diameter_um <- fov_diameter_mm * 1000  # Convert to µm
+fov_diameter_um <- 450  # Field of view diameter in µm
+fov_per_drop <- 2038    # Approximate number of FOVs per drop
+density_constant_fungal <- 0.41  # Fungal density in pg/µm³
+density_constant_bacterial <- 0.33  # Bacterial density in pg/µm³
 
 # Define fungal biomass calculation function
-# This function calculates fungal biomass based on length and diameter of fragments.
-calculate_fungal_biomass <- function(length_proportions, diameters) {
+calculate_fungal_biomass <- function(length_proportions, diameters, dilution, drops_per_ml) {
   biomass_per_fragment <- mapply(function(length_prop, diameter) {
-    length_um <- length_prop * fov_diameter_um  # Convert length proportion to absolute length in µm
+    length_um <- length_prop * fov_diameter_um
     radius <- diameter / 2
-    volume <- pi * radius^2 * length_um  # Volume in µm³
-    biomass <- volume * 0.41  # Convert volume to biomass using fungal density constant (pg/µm³)
+    volume <- pi * radius^2 * length_um
+    biomass <- volume * density_constant_fungal
     return(biomass)
   }, length_proportions, diameters)
   
-  total_biomass <- sum(biomass_per_fragment, na.rm = TRUE)  # Total biomass per sample
-  return(total_biomass)  # Returns biomass in picograms (pg)
+  total_biomass_pg <- sum(biomass_per_fragment, na.rm = TRUE) / 25 * fov_per_drop * drops_per_ml * dilution
+  total_biomass_ug <- total_biomass_pg / 1e6
+  return(total_biomass_ug)
 }
-
-# Apply fungal biomass calculation across each unique ID and date
-data <- data %>%
-  group_by(ID, Fungal_Date) %>%
-  mutate(FunBio = calculate_fungal_biomass(FunL, FunW)) %>%
-  ungroup()
 
 # Define bacterial biomass calculation function
-# This function calculates bacterial biomass based on bacterial counts and dilution factors.
-calculate_bacterial_biomass <- function(counts, dilution) {
-  avg_count <- mean(counts, na.rm = TRUE)  # Average bacterial count per field of view
-  biomass <- avg_count * dilution * 0.33 / 1e6  # Convert counts to µg/g using bacterial density constant
-  biomass_scaled <- biomass * 19  # Apply scaling for 19 drops per mL
-  return(biomass_scaled)  # Returns biomass in µg/g
+calculate_bacterial_biomass <- function(counts, dilution, fov_fraction, drops_per_ml) {
+  avg_count <- mean(counts, na.rm = TRUE)
+  full_fov_count <- avg_count * (1 / fov_fraction)
+  total_count_per_drop <- full_fov_count * fov_per_drop
+  biomass_pg <- total_count_per_drop * density_constant_bacterial
+  biomass_ug_g <- (biomass_pg * dilution * drops_per_ml) / 1e6
+  return(biomass_ug_g)
 }
 
-# Apply bacterial biomass calculation across each unique ID and date
+# Apply calculations across each unique ID-Date
 data <- data %>%
-  group_by(ID, Fungal_Date) %>%
-  mutate(
-    BacBio = mapply(calculate_bacterial_biomass, list(c(Bac1, Bac2, Bac3, Bac4, Bac5)), Bacterial.Dilution)
-  ) %>%
-  ungroup()
-
-# Protozoa calculations (flagellates and amoebae)
-# Calculates total protozoa counts (scaled by dilution and drop factor).
-data <- data %>%
-  mutate(
-    Flag = Flagellates * Main.Dilution * 19,
-    Amoe = Amoeba * Main.Dilution * 19,
-    Proto = Flag + Amoe  # Total protozoa count
-  )
-
-# Nematode calculations
-# Calculates scaled counts for different nematode types.
-data <- data %>%
-  mutate(
-    BfNem = Bf.Nem * Main.Dilution * 19,
-    FfNem = Ff.Nem * Main.Dilution * 19,
-    PNem = Pred.Nem * Main.Dilution * 19,
-    RfNem = Rf.Nem * Main.Dilution * 19
-  )
-
-# Summarize results by ID and date
-# Calculates fungal-to-bacterial biomass ratio (F:B) and other metrics.
-summary_results <- data %>%
   group_by(ID, Fungal_Date) %>%
   summarize(
-    BacBio = mean(BacBio, na.rm = TRUE),  # Average bacterial biomass
-    FunBio = sum(FunBio, na.rm = TRUE),  # Total fungal biomass
-    `F:B` = FunBio / BacBio,  # Fungal-to-bacterial biomass ratio
-    Proto = sum(Proto, na.rm = TRUE),  # Total protozoa count
-    Flag = sum(Flag, na.rm = TRUE),
-    Amoe = sum(Amoe, na.rm = TRUE),
-    BfNem = sum(BfNem, na.rm = TRUE),  # Total bacterial-feeding nematodes
-    FfNem = sum(FfNem, na.rm = TRUE),  # Total fungal-feeding nematodes
-    PNem = sum(PNem, na.rm = TRUE),  # Total predatory nematodes
-    RfNem = sum(RfNem, na.rm = TRUE),  # Total root-feeding nematodes
+    BacBio = calculate_bacterial_biomass(c(Bac1, Bac2, Bac3, Bac4, Bac5), unique(Bacterial.Dilution), unique(FOV_Fraction), unique(Drops.per.mL)),
+    FunBio = calculate_fungal_biomass(FunL, FunW, unique(Main.Dilution), unique(Drops.per.mL)),
+    `F:B` = FunBio / BacBio,
     .groups = "drop"
   )
 
-# Save results to a CSV file
-# Outputs results to the "output" directory.
-write.csv(summary_results, "output/Final_Summary_Results.csv", row.names = FALSE)
+# Define output file name
+output_file <- "output/Final_Summary_Results.csv"
 
-# Display the summary results to check
+# Save the results to CSV
+write.csv(data, output_file, row.names = FALSE)
+
+# Print results
 print("Final Summary Results:")
-print(summary_results)
+print(data)
