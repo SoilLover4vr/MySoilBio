@@ -75,15 +75,67 @@ calculate_bacterial_biomass <- function(counts, dilution, fov_fraction, drops_pe
   return(biomass_ug_g)
 }
 
+# ---------------------------
+# Protozoa Calculation (Flagellates and Amoebae)
+# ---------------------------
+calculate_protozoa <- function(flagellates, amoeba, dilution, drops_per_ml) {
+  if (is.na(flagellates) | is.na(amoeba) | is.na(dilution) | is.na(drops_per_ml)) {
+    return(c(NA, NA, NA))
+  }
+
+  # Adjusted Field of View at 400× magnification
+  field_diameter_mm <- 18 / 40
+  field_radius_mm <- field_diameter_mm / 2
+  field_area_mm2 <- pi * (field_radius_mm^2)
+  coverslip_area_mm2 <- 18 * 18
+  total_fields_per_coverslip <- coverslip_area_mm2 / field_area_mm2
+
+  # Scaling calculations
+  scaled_flag <- (flagellates / 25) * total_fields_per_coverslip * drops_per_ml * dilution
+  scaled_amoeba <- (amoeba / 25) * total_fields_per_coverslip * drops_per_ml * dilution
+  total_protozoa <- scaled_flag + scaled_amoeba
+
+  return(c(total_protozoa, scaled_flag, scaled_amoeba))
+}
+
+# ---------------------------
+# Nematode Calculation
+# ---------------------------
+calculate_nematodes <- function(bf_nem, ff_nem, pred_nem, dilution, drops_per_ml) {
+  if (is.na(bf_nem) | is.na(ff_nem) | is.na(pred_nem) | is.na(dilution) | is.na(drops_per_ml)) {
+    return(c(NA, NA, NA))
+  }
+  
+  bf_nem_scaled <- bf_nem * drops_per_ml * dilution
+  ff_nem_scaled <- ff_nem * drops_per_ml * dilution
+  pred_nem_scaled <- pred_nem * drops_per_ml * dilution
+
+  return(c(bf_nem_scaled, ff_nem_scaled, pred_nem_scaled))
+}
+
 # Apply calculations across each unique ID-Date
 data <- data %>%
   group_by(ID, Fungal_Date) %>%
   summarize(
+    # Bacterial and fungal biomass calculations 
     BacBio = calculate_bacterial_biomass(c(Bac1, Bac2, Bac3, Bac4, Bac5), unique(Bacterial.Dilution), unique(FOV_Fraction), unique(Drops.per.mL)),
     FunBio = calculate_fungal_biomass(FunL, FunW, unique(Main.Dilution), unique(Drops.per.mL)),
     `F:B` = FunBio / BacBio,
+
+# Protozoa calculations (sum flagellates and amoeba for total)
+Flagellates_Count = calculate_protozoa(Flagellates, unique(Main.Dilution), unique(Drops.per.mL)),
+Amoeba_Count = calculate_protozoa(Amoeba, unique(Main.Dilution), unique(Drops.per.mL)),
+Total_Protozoa = Flagellates_Count + Amoeba_Count,
+
+# Nematode calculations (each considered individually)
+Bf_Nem_Count = calculate_nematodes(Bf_Nem, unique(Main.Dilution), unique(Drops.per.mL)),
+Ff_Nem_Count = calculate_nematodes(Ff_Nem, unique(Main.Dilution), unique(Drops.per.mL)),
+Rf_Nem_Count = calculate_nematodes(Rf_Nem, unique(Main.Dilution), unique(Drops.per.mL)),    
+Pred_Nem_Count = calculate_nematodes(Pred_Nem, unique(Main.Dilution), unique(Drops.per.mL)),
+
     .groups = "drop"
   )
+
 
 # Define output file name
 output_file <- "output/Final_Summary_Results.csv"
@@ -93,4 +145,5 @@ write.csv(data, output_file, row.names = FALSE)
 
 # Print results
 print("Final Summary Results:")
+print(head(data[, c("Total_Protozoa", "Flagellates_Count", "Amoeba_Count", "Bf_Nem_Count", "Ff_Nem_Count", "Pred_Nem_Count")], 5))
 print(data)
